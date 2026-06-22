@@ -1,0 +1,21 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# 데이터: 원본 txt는 커밋, 재생성되는 것/압축본은 제외
+data/processed/
+data/raw/CMAPSSData.zip
+
+# MLOps 산출물 (나중 단계)
+mlruns/
+mlartifacts/
+
+# 환경변수
+.env
