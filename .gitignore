@@ -13,13 +13,14 @@ wheels/
 data/processed/
 data/raw/CMAPSSData.zip
 
-# MLOps 산출물 (나중 단계)
-mlruns/
-mlartifacts/
-
-# 환경변수
-.env
+# MLOps 산출물
 mlruns/
 mlflow.db
 mlartifacts/
 predictions.db
+
+# 환경변수
+.env
+
+# docker compose bind 볼륨 (named volume은 docker가 관리)
+postgres_data/

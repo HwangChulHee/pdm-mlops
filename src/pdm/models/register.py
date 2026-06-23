@@ -1,4 +1,5 @@
 """최근 학습한 CNN run을 MLflow Model Registry에 champion으로 등록."""
+import os
 import warnings
 warnings.filterwarnings("ignore")
 import mlflow
@@ -8,7 +9,7 @@ MODEL_NAME = "pdm-rul-cnn"
 
 
 def main():
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
     client = MlflowClient()
 
     exp = client.get_experiment_by_name("pdm-rul")

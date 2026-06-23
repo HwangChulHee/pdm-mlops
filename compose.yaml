@@ -1,0 +1,75 @@
+## PdM RUL 전체 스택: postgres + mlflow 서버 + FastAPI.
+## docker compose up 한 번으로 기동. 환경변수는 .env 참조.
+##
+## 설계 핵심: MLflow를 "파일"이 아니라 "서버"로 운영한다.
+##  - api는 sqlite/로컬파일을 직접 읽지 않고 MLFLOW_TRACKING_URI(http)로 서버에 요청.
+##  - 서버는 --serve-artifacts 로 artifact를 프록시하므로 model_version source가
+##    호스트 절대경로가 아니라 mlflow-artifacts:/ URI가 되어 컨테이너에서도 동작.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pdm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pdm}
+      POSTGRES_DB: mlflow            # mlflow 백엔드 DB. predictions DB는 init-db.sql이 추가
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-pdm} -d mlflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mlflow:
+    image: pdm-mlops:latest        # api와 동일 이미지(mlflow+psycopg 포함) 재사용
+    build: .
+    environment:
+      # mlflow 3.x DNS rebinding 보호. 기본 허용은 localhost/사설IP뿐이라
+      # 서비스명(mlflow:5000)으로 들어오는 컨테이너 간 요청이 막힌다 -> 명시 허용.
+      MLFLOW_SERVER_ALLOWED_HOSTS: "mlflow:5000,localhost:5000,localhost,127.0.0.1:5000,127.0.0.1"
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      # psycopg2(클라이언트측 파라미터 보간)로 backend store 연결. psycopg3은 파라미터를
+      # ::VARCHAR로 명시 캐스팅해서 integer version 컬럼 비교(set alias)가 깨진다.
+      - postgresql+psycopg2://${POSTGRES_USER:-pdm}:${POSTGRES_PASSWORD:-pdm}@postgres:5432/mlflow
+      - --artifacts-destination
+      - /mlartifacts
+      - --serve-artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlartifacts:/mlartifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:5000/health').status==200 else sys.exit(1)\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: pdm-mlops:latest
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-pdm}:${POSTGRES_PASSWORD:-pdm}@postgres:5432/predictions
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  mlartifacts:

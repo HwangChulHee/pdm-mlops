@@ -53,7 +53,7 @@ def main(model_name):
     opt = torch.optim.Adam(model.parameters(), lr=LR)
     lossfn = nn.MSELoss()
 
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
     mlflow.set_experiment("pdm-rul")
     with mlflow.start_run(run_name=model_name):
         mlflow.log_params({

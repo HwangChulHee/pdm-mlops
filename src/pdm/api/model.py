@@ -10,7 +10,7 @@ import torch
 from mlflow.artifacts import download_artifacts
 from pdm.models.models import CNN1D
 
-MLFLOW_URI = "sqlite:///mlflow.db"
+MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
 MODEL_ALIAS = "models:/pdm-rul-cnn@champion"
 RUL_MAX = 125.0
 
