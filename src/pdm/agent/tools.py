@@ -2,12 +2,17 @@
 얇은 래퍼다. 에이전트가 추측 대신 실제 데이터를 근거로 답하게 하는 게 목적.
 
 API/Prometheus 주소는 환경변수로 두어 나중에 컨테이너화해도 코드 변경이 없게 한다.
+
+LangGraph 그래프의 LLM/ToolNode는 아래 LC_TOOLS(LangChain 도구 객체)를 쓴다.
+도구 내부 로직(httpx 호출 등)은 raw SDK 버전에서 검증된 그대로이며, @tool로
+감싸기만 했다. 평범한 함수도 그대로 남겨 deep_check 노드/테스트에서 직접 호출한다.
 """
 import json
 import os
 from pathlib import Path
 
 import httpx
+from langchain_core.tools import tool
 
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
@@ -81,66 +86,12 @@ def check_drift() -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-# --- OpenAI function-calling 스키마 + 디스패치 테이블 ---
-
-TOOLS = {
-    "predict_rul": predict_rul,
-    "get_recent_predictions": get_recent_predictions,
-    "get_metrics_summary": get_metrics_summary,
-    "check_drift": check_drift,
-}
-
-TOOL_SCHEMAS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "predict_rul",
-            "description": "30사이클 x 15센서 윈도우로 엔진 잔여수명(RUL, 0~125)을 "
-                           "예측한다. 결과는 예측 이력 DB에도 저장된다.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "window": {
-                        "type": "array",
-                        "description": "30개 행, 각 행은 센서값 15개인 2차원 배열",
-                        "items": {"type": "array", "items": {"type": "number"}},
-                    }
-                },
-                "required": ["window"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_recent_predictions",
-            "description": "최근 예측 이력을 DB에서 조회한다(id, 시각, rul, 모델버전, "
-                           "입력 윈도우 평균).",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "limit": {"type": "integer", "description": "가져올 건수 (기본 10)"}
-                },
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_metrics_summary",
-            "description": "운영 메트릭 요약을 Prometheus에서 가져온다: 총 예측 수, "
-                           "predict p95 지연(초), 예측 RUL 분포(버킷별 누적 카운트).",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "check_drift",
-            "description": "데이터 드리프트 요약을 반환한다: 드리프트된 feature 수/전체, "
-                           "대조군 드리프트 수. 모델은 FD001로 학습, FD002 유입 시 비교.",
-            "parameters": {"type": "object", "properties": {}, "required": []},
-        },
-    },
+# --- LangChain 도구 객체 (그래프의 LLM 바인딩 / ToolNode가 사용) ---
+# tool(func)는 함수의 이름·docstring·타입힌트로 스키마를 만든다. 위 평범한 함수의
+# 로직을 그대로 재사용하므로 raw SDK 때 검증된 동작이 유지된다.
+LC_TOOLS = [
+    tool(predict_rul),
+    tool(get_recent_predictions),
+    tool(get_metrics_summary),
+    tool(check_drift),
 ]
