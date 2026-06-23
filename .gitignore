@@ -24,3 +24,6 @@ predictions.db
 
 # docker compose bind 볼륨 (named volume은 docker가 관리)
 postgres_data/
+
+# Evidently 드리프트 리포트 HTML (재생성됨)
+reports/

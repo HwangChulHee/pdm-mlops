@@ -6,10 +6,20 @@ import numpy as np
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import select
+from prometheus_client import Histogram
+from prometheus_fastapi_instrumentator import Instrumentator
 from pdm.api.model import rul_model, MODEL_ALIAS
 from pdm.api.schemas import PredictRequest, PredictResponse, HealthResponse
 from pdm.api.db import engine, Base, get_db
 from pdm.api.models_db import Prediction
+
+# ML 특화 메트릭: 예측 RUL 값의 분포. "갑자기 RUL이 다 0/125로 쏠림" 같은
+# 모델 이상을 잡는다. 표준 HTTP 메트릭(요청수/지연/에러율)은 Instrumentator가 자동 제공.
+RUL_HISTOGRAM = Histogram(
+    "rul_prediction",
+    "예측된 RUL 값의 분포 (사이클)",
+    buckets=[0, 25, 50, 75, 100, 125, float("inf")],
+)
 
 
 @asynccontextmanager
@@ -21,6 +31,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="PdM RUL Prediction API", version="0.2.0", lifespan=lifespan)
 
+# /metrics 노출 + 표준 HTTP 메트릭(요청수/지연/상태코드) 자동 계측
+Instrumentator().instrument(app).expose(app)
+
 
 @app.get("/health", response_model=HealthResponse)
 def health():
@@ -30,6 +43,7 @@ def health():
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest, db: Session = Depends(get_db)):
     rul = rul_model.predict(req.window)
+    RUL_HISTOGRAM.observe(rul)
     row = Prediction(
         rul=rul,
         model_version=MODEL_ALIAS,
