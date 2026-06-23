@@ -3,8 +3,17 @@ name = "pdm-mlops"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
+    "mlflow>=1.27.0",
     "numpy>=2.5.0",
     "pandas>=3.0.3",
+    "protobuf<6",
+    "torch>=2.12.1",
 ]
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cpu"
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
