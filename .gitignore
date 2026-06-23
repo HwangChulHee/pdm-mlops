@@ -22,3 +22,4 @@ mlartifacts/
 mlruns/
 mlflow.db
 mlartifacts/
+predictions.db
