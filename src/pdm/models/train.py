@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 import mlflow
-from models import MODELS
+from pdm.models.models import MODELS
 
 # --- 튜닝 가능한 값 ---
 EPOCHS = 30
