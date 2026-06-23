@@ -5,10 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "mlflow>=1.27.0",
+    "alembic>=1.14",
+    "mlflow>=3.1",
     "numpy>=2.5.0",
-    "pandas>=3.0.3",
+    "pandas>=2.2,<3",
     "protobuf<6",
+    "sqlalchemy>=2.0.40",
     "torch>=2.12.1",
 ]
 
