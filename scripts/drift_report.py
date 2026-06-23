@@ -11,7 +11,11 @@ test 궤적이 고장 전 잘려 있어(truncated) 같은 운영조건인데도 
 깨끗한 대조군이 못 된다 -> 같은 분포 분할을 대조군으로 쓴다.
 
 비교 대상은 센서 15개의 원시값 분포(전처리에서 쓰는 feature_cols 그대로).
+
+HTML 리포트와 함께 요약 수치를 reports/drift_summary.json으로도 떨군다.
+드리프트 재계산은 무거우므로 에이전트 도구(check_drift)는 이 JSON만 읽는다.
 """
+import json
 from pathlib import Path
 
 from evidently import Report, Dataset, DataDefinition
@@ -60,8 +64,21 @@ if __name__ == "__main__":
     control = run_report(half, rest, "drift_fd001_split_control.html",
                          "대조: FD001 무작위 반분할")
 
+    # 에이전트 도구가 읽을 요약 JSON (재계산 회피)
+    summary = {
+        "drifted_features": drift,
+        "total": len(FEATS),
+        "control_drifted": control,
+        "reference": "FD001 train (운영조건 1개, 모델 학습 분포)",
+        "current": "FD002 train (운영조건 6개, 운영 유입 가정)",
+        "report_html": "reports/drift_fd001_vs_fd002.html",
+    }
+    (OUT / "drift_summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+
     print("\n해석:")
     print(f"  - FD001->FD002: {drift}/{len(FEATS)} 드리프트 (운영조건 변화로 분포 어긋남)")
     print(f"  - 대조군:       {control}/{len(FEATS)} 드리프트 (같은 분포, 낮아야 정상)")
     if drift > control:
         print("  => 시나리오 정상: 운영조건이 다른 FD002에서 드리프트가 뚜렷이 더 크다.")
+    print(f"  - 요약 JSON -> {OUT / 'drift_summary.json'}")

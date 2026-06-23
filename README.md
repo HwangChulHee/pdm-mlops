@@ -75,7 +75,36 @@ curl "http://localhost:9090/api/v1/query?query=rul_prediction_count"
 uv run python scripts/drift_report.py
 # -> reports/drift_fd001_vs_fd002.html  (15/15 feature 드리프트)
 # -> reports/drift_fd001_split_control.html  (대조군: 같은 분포 반분할, 0/15)
+# -> reports/drift_summary.json  (에이전트 check_drift 도구가 읽는 요약)
 ```
+
+## LLM 에이전트 (gpt-5.4-mini tool use)
+
+우리가 만든 시스템(API/DB/Prometheus/드리프트 요약)을 **도구 4개**로 노출하고,
+gpt-5.4-mini가 자연어 질문에 도구를 엮어 **근거 기반**으로 답한다. 자율 에이전트가
+아니라 tool calling + multi-step 워크플로우 데모다.
+
+도구: `predict_rul`, `get_recent_predictions`, `get_metrics_summary`, `check_drift`
+(`src/pdm/agent/tools.py`). 스택을 호출하는 얇은 래퍼라 컨테이너가 아닌 CLI로 실행.
+
+준비: 스택 기동(`docker compose up`) + `.env`에 `OPENAI_API_KEY` + 드리프트 요약
+1회 생성(`uv run python scripts/drift_report.py`).
+
+```bash
+# 단순 조회 (도구 1개)
+uv run python -m pdm.agent.agent "최근 예측 3건 보여줘"
+
+# multi-step (한 질문에 도구 여러 개를 엮음)
+uv run python -m pdm.agent.agent "지금 이 시스템 신뢰할 만해?"
+#  -> get_metrics_summary + check_drift + get_recent_predictions 를 호출해
+#     "드리프트 15/15, 예측이 125로 포화 -> 예측 신뢰도 낮음" 식으로 종합 판단
+
+# 인자 없이 실행하면 인터랙티브 루프
+uv run python -m pdm.agent.agent
+```
+
+도구 호출 로그는 stderr로 출력된다(`2>/tmp/agent.log`로 확인). 모델/주소는
+`AGENT_MODEL`·`API_URL`·`PROMETHEUS_URL` 환경변수로 바꿀 수 있다.
 
 ## 로컬 실행 (Docker 없이)
 
