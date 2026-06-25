@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: pdm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+      - name: api
+        image: pdm-mlops:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: DATABASE_URL
+          value: postgresql+psycopg://pdm:$(POSTGRES_PASSWORD)@postgres:5432/predictions
+        - name: MLFLOW_TRACKING_URI
+          value: http://mlflow:5000
+        ports:
+        - containerPort: 8000

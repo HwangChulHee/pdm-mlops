@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: pdm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      containers:
+      - name: mlflow
+        image: pdm-mlops:latest
+        imagePullPolicy: IfNotPresent
+        command: ["mlflow"]
+        args:
+        - server
+        - --backend-store-uri
+        - postgresql+psycopg2://pdm:$(POSTGRES_PASSWORD)@postgres:5432/mlflow
+        - --artifacts-destination
+        - /mlartifacts
+        - --serve-artifacts
+        - --host
+        - "0.0.0.0"
+        - --port
+        - "5000"
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: MLFLOW_SERVER_ALLOWED_HOSTS
+          value: "mlflow:5000,localhost:5000,localhost,127.0.0.1:5000,127.0.0.1"
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+        - name: mlflow-artifacts
+          mountPath: /mlartifacts
+      volumes:
+      - name: mlflow-artifacts
+        persistentVolumeClaim:
+          claimName: mlflow-artifacts
