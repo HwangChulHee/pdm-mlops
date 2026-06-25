@@ -1,0 +1,81 @@
+apiVersion: v1
+data:
+  pdm-dashboard.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "schemaVersion": 39,
+      "title": "PdM RUL API Monitoring",
+      "tags": ["pdm", "mlops"],
+      "time": { "from": "now-15m", "to": "now" },
+      "refresh": "5s",
+      "panels": [
+        {
+          "id": 1,
+          "title": "요청수 (predict rate, req/s)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(http_requests_total{handler=\"/predict\"}[1m]))",
+              "legendFormat": "predict req/s"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "응답 지연 p95 (predict, sec)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{handler=\"/predict\"}[1m])) by (le))",
+              "legendFormat": "p95 latency"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "title": "예측 RUL 분포 (버킷별 누적 카운트)",
+          "type": "barchart",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "options": { "xField": "le", "orientation": "vertical" },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rul_prediction_bucket) by (le)",
+              "legendFormat": "<= {{le}}",
+              "format": "time_series",
+              "instant": true
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "title": "에러율 (4xx/5xx, req/s)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(rate(http_requests_total{status=~\"4..|5..\"}[1m]))",
+              "legendFormat": "errors/s"
+            }
+          ]
+        }
+      ]
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-json
+  namespace: pdm
